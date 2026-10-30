@@ -590,7 +590,7 @@
     a.click();
   };
   $('#btnShare').onclick = async () => {
-    const url = location.href.split('#')[0] + '#b=' + encode(state, sentCard);
+    const url = location.href.split('#')[0] + '#p=' + encode(state, sentCard);
     try { await navigator.clipboard.writeText(url); toast(t('copied')); }
     catch { window.prompt(t('copyPrompt'), url); }
   };
@@ -668,19 +668,41 @@
 
   // ---------- Share links ----------
   // The whole posey lives in the URL hash, so no server is needed
+  // Share links pack the bouquet into bytes (#p=). Options are stored by their position in these lists,
+  // so new flowers, vases, backdrops, papers and fonts must only ever be added at the end.
+  const LISTS = { k: CATALOG.map(f => f.k), v: Object.keys(VASES), b: Object.keys(BGS), p: Object.keys(CARD_PAPERS), o: Object.keys(CARD_FONTS) };
+  const toB64 = bytes => { let bin = ''; bytes.forEach(b => { bin += String.fromCharCode(b); }); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const fromB64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0));
   function encode(st, c) {
-    const data = {
-      i: st.items.map(it => [it.k, Math.round(it.x), Math.round(it.y), Math.round(it.s * 100), Math.round(it.rot), Math.round(it.op * 100), it.fh, it.fv]),
-      v: st.vase, c: st.tint, b: st.bg, t: c.to, f: c.from, n: c.note, p: c.paper, o: c.font,
-    };
-    const bytes = new TextEncoder().encode(JSON.stringify(data));
-    let bin = '';
-    bytes.forEach(b => { bin += String.fromCharCode(b); });
-    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const out = [], u16 = n => out.push(n >> 8 & 255, n & 255), at = (list, k) => Math.max(0, list.indexOf(k));
+    const text = str => { const b = new TextEncoder().encode(str || ''); u16(b.length); out.push(...b); };
+    out.push(1, at(LISTS.v, st.vase), at(Object.keys(VASES[st.vase].palette), st.tint), at(LISTS.b, st.bg), at(LISTS.p, c.paper), at(LISTS.o, c.font));
+    u16(st.items.length);
+    st.items.forEach(it => {
+      u16(Math.round(it.x) & 0xffff); u16(Math.round(it.y) & 0xffff);
+      out.push(at(LISTS.k, it.k), Math.min(255, Math.round(it.s * 50)), Math.round(it.op * 100));
+      u16(((Math.round(it.rot) + 180) % 360 + 360) % 360 << 2 | (it.fh ? 2 : 0) | (it.fv ? 1 : 0));
+    });
+    text(c.to); text(c.from); text(c.note);
+    return toB64(out);
   }
   function decode(s) {
-    const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
-    const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+    const b = fromB64(s);
+    let p = 0;
+    const u8 = () => b[p++], u16 = () => (b[p++] << 8) | b[p++], i16 = () => { const v = u16(); return v > 32767 ? v - 65536 : v; };
+    const text = () => { const n = u16(); p += n; return new TextDecoder().decode(b.subarray(p - n, p)); };
+    if (u8() !== 1) throw new Error('unknown link version');
+    const vase = LISTS.v[u8()] || 'classic', tints = Object.keys(VASES[vase].palette), tint = tints[u8()] || tints[0];
+    const bg = LISTS.b[u8()] || 'cream', paper = LISTS.p[u8()] || 'plain', font = LISTS.o[u8()] || 'serif';
+    const items = Array.from({ length: u16() }, () => {
+      const x = i16(), y = i16(), k = LISTS.k[u8()], sc = u8() / 50, op = u8() / 100, r = u16();
+      return { id: uid++, k, x, y, s: sc, rot: (r >> 2) - 180, op, fh: r >> 1 & 1, fv: r & 1 };
+    }).filter(it => it.k);
+    return { st: { items, vase, tint, bg }, card: { to: text(), from: text(), note: text(), paper, font } };
+  }
+  // The first version's links (#b=) were base64 JSON; they still open
+  function decodeOld(s) {
+    const d = JSON.parse(new TextDecoder().decode(fromB64(s)));
     return {
       st: {
         items: d.i.filter(a => BYKEY[a[0]]).map(([k, x, y, s, rot, op, fh, fv]) => ({ id: uid++, k, x, y, s: s / 100, rot, op: op / 100, fh, fv })),
@@ -703,9 +725,9 @@
     el.hidden = !(c.to || c.note || c.from);
   }
   function checkHash() {
-    const m = location.hash.match(/^#b=([\w-]+)/);
+    const m = location.hash.match(/^#([pb])=([\w-]+)/);
     if (!m) return;
-    try { received = decode(m[1]); } catch { return; }
+    try { received = m[1] === 'p' ? decode(m[2]) : decodeOld(m[2]); } catch { return; }
     fillReceived();
     $('#giftSvg').innerHTML = scene(received.st);
     $('#received').hidden = false;
