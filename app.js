@@ -563,20 +563,30 @@
   $('#btnSkipCard').onclick = () => toStep2({ ...card, to: '', from: '', note: '' });
   $('#btnBack').onclick = () => { $('#step1').hidden = false; $('#step2').hidden = true; };
 
-  let pngUrl = '', sentCard = card;
+  let pngUrl = '', pngFile = null, sentCard = card;
+  const pngName = () => `${sentCard.to ? `Posey-${sentCard.to}` : t('fileName')}.png`;
   async function toStep2(c) {
     sentCard = c;
     $('#step1').hidden = true; $('#step2').hidden = false;
-    pngUrl = '';
+    pngUrl = ''; pngFile = null;
     $('#previewImg').removeAttribute('src');
     pngUrl = await renderPNG(state, c);
     $('#previewImg').src = pngUrl;
+    // Prepared ahead of time: iOS only opens the share sheet straight from a tap, with no await in between
+    pngFile = new File([await (await fetch(pngUrl)).blob()], pngName(), { type: 'image/png' });
   }
 
+  // iPhones and iPads ignore download links, so they get the share sheet ("Save Image" puts it in Photos)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  $('#saveHint').hidden = !matchMedia('(pointer: coarse)').matches;
   $('#btnDownload').onclick = () => {
     if (!pngUrl) return;
+    if (isIOS && pngFile && navigator.canShare?.({ files: [pngFile] })) {
+      navigator.share({ files: [pngFile] }).catch(() => {});
+      return;
+    }
     const a = document.createElement('a');
-    a.href = pngUrl; a.download = `${sentCard.to ? `Posey-${sentCard.to}` : t('fileName')}.png`;
+    a.href = pngUrl; a.download = pngName();
     a.click();
   };
   $('#btnShare').onclick = async () => {
