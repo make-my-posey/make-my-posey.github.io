@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Posey</title>
+  <meta name="description" content="Arrange a little posy online, write a card, and send it to someone you miss.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='11' cy='12' r='7' fill='%23c4626b'/><circle cx='21' cy='11' r='6' fill='%23f0a3ac'/><circle cx='16' cy='19' r='7' fill='%23e07c86'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Nunito+Sans:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;700&family=Caveat:wght@500;700&family=Dancing+Script:wght@500;700&family=Patrick+Hand&family=Long+Cang&family=Ma+Shan+Zheng&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M20 22 L20 38 M20 30 Q12 28 10 22 M20 32 Q28 30 30 25" stroke="#7d9a72" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="13" cy="13" r="7" fill="#c4626b"/><circle cx="26" cy="12" r="6" fill="#f0a3ac"/><circle cx="20" cy="20" r="7" fill="#e07c86"/>
+        <circle cx="20" cy="20" r="2.4" fill="#f6d27a"/>
+      </svg>
+      <div>
+        <h1>Posey</h1>
+        <p data-i18n="tagline"></p>
+      </div>
+    </div>
+    <nav class="tools">
+      <button id="btnUndo" data-i18n="undo" data-i18n-title="undoTitle"></button>
+      <button id="btnHelp" class="help" data-i18n="help"></button>
+      <button id="btnRandom" data-i18n="random"></button>
+      <button id="btnClear" data-i18n="clear"></button>
+      <button id="btnWall" data-i18n="wall"></button>
+      <button id="btnLang" class="lang" data-i18n="langBtn"></button>
+      <button id="btnSend" class="primary" data-i18n="send"></button>
+    </nav>
+  </header>
+
+  <main class="studio">
+    <aside class="panel library">
+      <h2 data-i18n="flowers"></h2>
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <p class="hint" data-i18n="hint"></p>
+      <div class="grid" id="grid"></div>
+    </aside>
+
+    <section class="stage">
+      <div class="canvas-wrap">
+        <svg id="canvas" viewBox="0 0 600 720" xmlns="http://www.w3.org/2000/svg" aria-label="canvas"></svg>
+        <div class="empty-hint" id="emptyHint" data-i18n="emptyHint"></div>
+      </div>
+    </section>
+
+    <aside class="panel props">
+      <section>
+        <h2 data-i18n="vessel"></h2>
+        <div class="vases" id="vases"></div>
+        <h3 data-i18n="tint"></h3>
+        <div class="tints" id="tints"></div>
+      </section>
+      <section>
+        <h2 data-i18n="backdrop"></h2>
+        <div class="bgs" id="bgs"></div>
+      </section>
+      <section>
+        <h2><span data-i18n="selected"></span> <small id="count"></small></h2>
+        <p id="noSel" class="muted" data-i18n="noSel"></p>
+        <div id="selCtrls" hidden>
+          <div class="sel-name" id="selName"></div>
+          <p class="sel-meaning" id="selMeaning"></p>
+          <label class="slider"><span data-i18n="size"></span> <output id="vSize"></output>
+            <input type="range" id="inSize" min="30" max="200" step="1">
+          </label>
+          <label class="slider"><span data-i18n="angle"></span> <output id="vRot"></output>
+            <input type="range" id="inRot" min="-180" max="180" step="1">
+          </label>
+          <label class="slider"><span data-i18n="opacity"></span> <output id="vOp"></output>
+            <input type="range" id="inOp" min="20" max="100" step="1">
+          </label>
+          <div class="btn-row">
+            <button data-act="flipH" data-i18n="flipH"></button>
+            <button data-act="flipV" data-i18n="flipV"></button>
+          </div>
+          <div class="btn-row">
+            <button data-act="front" data-i18n="front"></button>
+            <button data-act="forward" data-i18n="forward"></button>
+            <button data-act="back" data-i18n="backward"></button>
+            <button data-act="bottom" data-i18n="bottom"></button>
+          </div>
+          <div class="btn-row">
+            <button data-act="dup" data-i18n="dup"></button>
+            <button data-act="del" class="danger" data-i18n="del"></button>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <!-- Send flow -->
+  <div class="modal" id="sendModal" hidden>
+    <div class="modal-card">
+      <button class="close" data-close aria-label="close">×</button>
+      <div id="step1">
+        <h2 data-i18n="cardTitle"></h2>
+        <label class="field"><span data-i18n="to"></span><input id="cTo" maxlength="20" data-i18n-ph="toPh"></label>
+        <label class="field"><span data-i18n="from"></span><input id="cFrom" maxlength="20" data-i18n-ph="fromPh"></label>
+        <label class="field"><span><span data-i18n="note"></span> <small><span id="noteCount">0</span>/120</small></span>
+          <textarea id="cNote" maxlength="120" rows="3" data-i18n-ph="notePh"></textarea>
+        </label>
+        <div class="field"><span data-i18n="paper"></span><div class="chips" id="paperOpts"></div></div>
+        <div class="field"><span data-i18n="font"></span><div class="chips" id="fontOpts"></div></div>
+        <div class="card" id="cardPreview" aria-live="polite"></div>
+        <div class="modal-actions">
+          <button id="btnSkipCard" data-i18n="skip"></button>
+          <button id="btnNext" class="primary" data-i18n="next"></button>
+        </div>
+      </div>
+      <div id="step2" hidden>
+        <h2 data-i18n="ready"></h2>
+        <div class="preview"><img id="previewImg" alt=""></div>
+        <div class="modal-actions stack">
+          <button id="btnDownload" class="primary" data-i18n="download"></button>
+          <button id="btnShare" data-i18n="share"></button>
+          <button id="btnToWall" data-i18n="toWall"></button>
+        </div>
+        <button class="link" id="btnBack" data-i18n="editCard"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help me pick -->
+  <div class="modal" id="helpModal" hidden>
+    <div class="modal-card">
+      <button class="close" data-close aria-label="close">×</button>
+      <div id="help0">
+        <h2 data-i18n="helpStart"></h2>
+        <div class="paths">
+          <button class="path" id="btnPathOcc"><b data-i18n="pathOcc"></b><span data-i18n="pathOccSub"></span></button>
+          <button class="path" id="btnChoose"><b data-i18n="pathChoose"></b><span data-i18n="pathChooseSub"></span></button>
+        </div>
+      </div>
+      <div id="help1" hidden>
+        <h2 data-i18n="helpTitle"></h2>
+        <p class="muted" data-i18n="helpIntro"></p>
+        <div class="occasions" id="occasionOpts"></div>
+        <button class="link" id="btnOccBack" data-i18n="chooseBack"></button>
+      </div>
+      <div id="help3" hidden>
+        <h2 data-i18n="chooseTitle"></h2>
+        <p class="muted" data-i18n="chooseSub"></p>
+        <div class="tabs choose-tabs" id="chooseTabs"></div>
+        <div class="choose-grid" id="chooseGrid"></div>
+        <div class="modal-actions stack">
+          <button id="btnChooseMake" class="primary"></button>
+        </div>
+        <button class="link" id="btnChooseBack" data-i18n="chooseBack"></button>
+      </div>
+      <div id="help2" hidden>
+        <h2 id="helpOccTitle"></h2>
+        <p class="muted" data-i18n="helpSub"></p>
+        <ul class="meanings" id="helpPicks"></ul>
+        <div class="modal-actions stack">
+          <button id="btnHelpAuto" class="primary" data-i18n="helpAuto"></button>
+          <button id="btnHelpSelf" data-i18n="helpSelf"></button>
+        </div>
+        <button class="link" id="btnHelpBack" data-i18n="helpBack"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Local wall -->
+  <div class="modal" id="wallModal" hidden>
+    <div class="modal-card wide">
+      <button class="close" data-close aria-label="close">×</button>
+      <h2 data-i18n="wallTitle"></h2>
+      <p class="muted" data-i18n="wallSub"></p>
+      <div class="wall" id="wall"></div>
+    </div>
+  </div>
+
+  <!-- What the recipient sees -->
+  <div class="received" id="received" hidden>
+    <div class="envelope" id="envelope">
+      <div class="env-flap"></div>
+      <div class="env-seal" aria-hidden="true">❀</div>
+      <p class="env-text" id="envText"></p>
+      <button class="primary" id="btnOpen" data-i18n="open"></button>
+    </div>
+    <div class="gift" id="gift" hidden>
+      <svg id="giftSvg" viewBox="0 0 600 720" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="gift-side">
+        <div class="card" id="giftCard"></div>
+        <div class="modal-actions">
+          <button id="btnKeep" data-i18n="keep"></button>
+          <button class="primary" id="btnMine" data-i18n="mine"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <div class="meaning-pop" id="meaningPop" role="tooltip" hidden></div>
+
+  <script src="flowers.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
